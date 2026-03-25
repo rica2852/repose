@@ -21,12 +21,6 @@ processResources {
     )
 }
 
-processScoverageResources {
-    expand(
-        version: version,
-    )
-}
-
 license {
     excludes(['**/credentials.xsd', '**/atom.xsd', '**/xml.xsd'])
 }

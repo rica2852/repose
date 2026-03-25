@@ -1,0 +1,59 @@
+# Base image
+FROM ubuntu:18.04
+
+# Maintainer
+LABEL maintainer="The Repose Team <reposecore@rackspace.com>"
+
+# Environment variables
+ENV APP_ROOT=/etc/repose \
+    APP_VARS=/var/repose \
+    APP_LOGS=/var/log/repose \
+    PKG_DIR=/tmp/packages/repose/ \
+    JAVA_OPTS=
+
+# System prep: policy-rc.d, initctl diversion, apt config
+RUN set -xe && \
+    echo '#!/bin/sh' > /usr/sbin/policy-rc.d && \
+    echo 'exit 101' >> /usr/sbin/policy-rc.d && \
+    chmod +x /usr/sbin/policy-rc.d && \
+    dpkg-divert --local --rename --add /sbin/initctl && \
+    cp -a /usr/sbin/policy-rc.d /sbin/initctl && \
+    sed -i 's/^exit.*/exit 0/' /sbin/initctl && \
+    echo 'force-unsafe-io' > /etc/dpkg/dpkg.cfg.d/docker-apt-speedup && \
+    echo 'DPkg::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };' > /etc/apt/apt.conf.d/docker-clean && \
+    echo 'APT::Update::Post-Invoke { "rm -f /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/*.deb /var/cache/apt/*.bin || true"; };' >> /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Dir::Cache::pkgcache ""; Dir::Cache::srcpkgcache "";' >> /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Acquire::Languages "none";' > /etc/apt/apt.conf.d/docker-no-languages && \
+    echo 'Acquire::GzipIndexes "true"; Acquire::CompressionTypes::Order:: "gz";' > /etc/apt/apt.conf.d/docker-gzip-indexes && \
+    echo 'Apt::AutoRemove::SuggestsImportant "false";' > /etc/apt/apt.conf.d/docker-autoremove-suggests && \
+    mkdir -p /run/systemd && echo 'docker' > /run/systemd/container
+
+# Install OpenJDK 8 (we’ll replace this later)
+RUN apt-get update -qq && apt-get install -qq -y openjdk-8-jre-headless
+
+# Copy Repose packages
+COPY ./packages/repose/ ${PKG_DIR}
+
+# Install Repose packages
+RUN dpkg -R --install ${PKG_DIR}
+
+# Adjust log4j2 configuration
+RUN sed -i 's,<\(Appender.*RollingFile.*/\)>,<!--\1-->,' ${APP_ROOT}/log4j2.xml && \
+    sed -i 's,<\(Appender.*PhoneHomeMessages.*/\)>,<!--\1-->,' ${APP_ROOT}/log4j2.xml
+
+# Permissions
+RUN chgrp -R 0 ${APP_ROOT} ${APP_VARS} ${APP_LOGS} && \
+    chmod -R g=u ${APP_ROOT} ${APP_VARS} ${APP_LOGS}
+
+# Working directory and volume
+WORKDIR /etc/repose
+VOLUME ["/etc/repose"]
+
+# Use non-root user
+USER repose
+
+# Expose Repose port
+EXPOSE 8080
+
+# Default command
+CMD ["/bin/sh", "-c", "java $JAVA_OPTS -jar /usr/share/repose/repose.jar -c /etc/repose"]
