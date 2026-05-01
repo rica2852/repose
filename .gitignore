@@ -5,6 +5,7 @@
 *.ipr
 *.lic
 **/target/
+*.hprof
 
 ## vim objects
 *.swo
@@ -41,6 +42,11 @@ gradle-app.setting
 *.swp
 *.out
 jmeter.log
+
+# Test outputs and temporary files
+log-outputs/
+test-*.sh
+run-*.sh
 
 ## rcman
 rcman.conf
