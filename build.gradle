@@ -346,7 +346,7 @@ subprojects {
 
     //todo: for some reason jacoco freaks when we do clean and build together
     jacoco {
-        toolVersion = "0.8.1"
+        toolVersion = "0.8.7"
     }
 
     jacocoTestReport {
@@ -363,6 +363,17 @@ subprojects {
         jacoco {
             destinationFile = file("$buildDir/jacoco/jacocoTest.exec")
         }
+        
+        // Add JVM arguments for Java 11 reflection compatibility
+        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+                '--add-opens=java.base/java.text=ALL-UNNAMED',
+                '--add-opens=java.base/java.util.concurrent=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens=java.base/sun.security.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.security=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED'
     }
 
     integrationTest {
