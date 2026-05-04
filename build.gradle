@@ -136,8 +136,7 @@ subprojects {
     apply plugin: 'jacoco'
     apply plugin: 'nebula.maven-publish'
     apply plugin: 'signing'
-    // Scoverage disabled for Java 11 build - uncomment if needed
-    // apply plugin: 'org.scoverage'
+    apply plugin: 'org.scoverage'
     apply plugin: 'org.owasp.dependencycheck'
 
     dependencies {
@@ -159,11 +158,10 @@ subprojects {
         annotationProcessor "org.projectlombok:lombok"
     }
 
-    // Scoverage configuration disabled for Java 11 build
-    // scoverage {
-    //     scoverageVersion = '1.4.2'
-    //     scoverageScalaVersion = scalaMajDotMin
-    // }
+    scoverage {
+        scoverageVersion = '1.4.11'
+        scoverageScalaVersion = scalaMajDotMin
+    }
 
     // Create integrationTest source set and task manually (replaces testSets plugin)
     sourceSets {
@@ -350,12 +348,60 @@ subprojects {
     }
 
     jacocoTestReport {
+        dependsOn test
+        executionData test
+        
         afterEvaluate {
             sourceDirectories.setFrom(files([sourceSets.main.java.srcDirs, sourceSets.generated.java.srcDirs]))
             classDirectories.setFrom(files([sourceSets.main.java.outputDir, sourceSets.generated.java.outputDir]))
             classDirectories.setFrom(files(classDirectories.files.collect { classDirectory ->
                 fileTree(dir: classDirectory, excludes: ['**/ObjectFactory.class'])
             }))
+        }
+        
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    // Integration test coverage report
+    task jacocoIntegrationTestReport(type: JacocoReport) {
+        dependsOn integrationTest
+        executionData integrationTest
+        
+        afterEvaluate {
+            sourceDirectories.setFrom(files([sourceSets.main.java.srcDirs, sourceSets.generated.java.srcDirs]))
+            classDirectories.setFrom(files([sourceSets.main.java.outputDir, sourceSets.generated.java.outputDir]))
+            classDirectories.setFrom(files(classDirectories.files.collect { classDirectory ->
+                fileTree(dir: classDirectory, excludes: ['**/ObjectFactory.class'])
+            }))
+        }
+        
+        reports {
+            xml.required = true
+            html.required = true
+            html.outputLocation = file("${buildDir}/reports/jacoco/integrationTest/html")
+        }
+    }
+
+    // Combined coverage report (unit + integration tests)
+    task jacocoMergedReport(type: JacocoReport) {
+        dependsOn test, integrationTest
+        executionData fileTree(project.buildDir).include("jacoco/*.exec")
+        
+        afterEvaluate {
+            sourceDirectories.setFrom(files([sourceSets.main.java.srcDirs, sourceSets.generated.java.srcDirs]))
+            classDirectories.setFrom(files([sourceSets.main.java.outputDir, sourceSets.generated.java.outputDir]))
+            classDirectories.setFrom(files(classDirectories.files.collect { classDirectory ->
+                fileTree(dir: classDirectory, excludes: ['**/ObjectFactory.class'])
+            }))
+        }
+        
+        reports {
+            xml.required = true
+            html.required = true
+            html.outputLocation = file("${buildDir}/reports/jacoco/merged/html")
         }
     }
 
@@ -385,6 +431,17 @@ subprojects {
         if (project.hasProperty('javaArguments')) {
             systemProperty 'javaArguments', project.getProperty('javaArguments')
         }
+        
+        // Add JVM arguments for Java 11 reflection compatibility (same as test task)
+        jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                '--add-opens=java.base/java.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.lang.reflect=ALL-UNNAMED',
+                '--add-opens=java.base/java.text=ALL-UNNAMED',
+                '--add-opens=java.base/java.util.concurrent=ALL-UNNAMED',
+                '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+                '--add-opens=java.base/sun.security.util=ALL-UNNAMED',
+                '--add-opens=java.base/java.security=ALL-UNNAMED',
+                '--add-opens=java.base/java.io=ALL-UNNAMED'
     }
 
     dependencyCheck {
@@ -475,7 +532,7 @@ subprojects {
     if (project.hasProperty("minCoverageRatio")) {
         def minCoverageRatio = (project.findProperty("minCoverageRatio") ?: "0.75") as double
 
-        // Configure the JaCoCo test coverage verification
+        // Configure the JaCoCo test coverage verification (unit tests only)
         jacocoTestCoverageVerification {
             violationRules {
                 rule {
@@ -493,16 +550,39 @@ subprojects {
             }
         }
 
-        // Configure the Scoverage test coverage verification (disabled for Java 11 build)
-        // scoverage {
-        //     minimumRate = minCoverageRatio
-        // }
+        // Configure merged coverage verification (unit + integration tests)
+        task jacocoMergedCoverageVerification(type: JacocoCoverageVerification) {
+            dependsOn test, integrationTest
+            executionData fileTree(project.buildDir).include("jacoco/*.exec")
+            
+            violationRules {
+                rule {
+                    limit {
+                        minimum = minCoverageRatio
+                    }
+                }
+            }
+            
+            afterEvaluate {
+                sourceDirectories.setFrom(files([sourceSets.main.java.srcDirs, sourceSets.generated.java.srcDirs]))
+                classDirectories.setFrom(files([sourceSets.main.java.outputDir, sourceSets.generated.java.outputDir]))
+                classDirectories.setFrom(files(classDirectories.files.collect { classDirectory ->
+                    fileTree(dir: classDirectory, excludes: ['**/ObjectFactory.class'])
+                }))
+            }
+        }
+
+        // Configure the Scoverage test coverage verification
+        scoverage {
+            minimumRate = minCoverageRatio
+        }
 
         // Wire in test coverage verification tasks
         //
         // Note: To take advantage of Scoverage aggregation, the check dependency on
         // Scoverage was placed in the repose-aggregator sub-project.
-        check.dependsOn jacocoTestCoverageVerification
+        // We use merged coverage verification to check combined unit + integration test coverage
+        check.dependsOn jacocoMergedCoverageVerification
     }
 
     buildAll.dependsOn build
