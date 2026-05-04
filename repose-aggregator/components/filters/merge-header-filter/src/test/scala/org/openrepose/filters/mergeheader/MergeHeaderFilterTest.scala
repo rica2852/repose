@@ -129,10 +129,10 @@ class MergeHeaderFilterTest extends FunSpec with BeforeAndAfterEach with Matcher
     val config = new MergeHeaderConfig
 
     val requestHeaderList = new HeaderList
-    requestHeaderList.getHeader.addAll(requestHeaders.asJava)
+    requestHeaderList.getHeader.addAll(requestHeaders.toSeq.asJava)
 
     val responseHeaderList = new HeaderList
-    responseHeaderList.getHeader.addAll(responseHeaders.asJava)
+    responseHeaderList.getHeader.addAll(responseHeaders.toSeq.asJava)
 
     config.setRequest(requestHeaderList)
     config.setResponse(responseHeaderList)
