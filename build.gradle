@@ -158,9 +158,17 @@ subprojects {
         annotationProcessor "org.projectlombok:lombok"
     }
 
+    // Ensure Lombok works with the Scoverage source set
+    configurations.matching { it.name == 'scoverageCompileOnly' }.all {
+        dependencies.add(project.dependencies.create('org.projectlombok:lombok'))
+    }
+    configurations.matching { it.name == 'scoverageAnnotationProcessor' }.all {
+        dependencies.add(project.dependencies.create('org.projectlombok:lombok'))
+    }
+
     scoverage {
         scoverageVersion = '1.4.11'
-        scoverageScalaVersion = scalaMajDotMin
+        scoverageScalaVersion = "$scalaMajDotMin.$scalaPatch"
     }
 
     // Create integrationTest source set and task manually (replaces testSets plugin)
@@ -287,6 +295,10 @@ subprojects {
         integrationTest {
             compileClasspath += configurations.compileOnly
             runtimeClasspath += configurations.compileOnly
+            compileClasspath += files([sourceSets.generated.java.outputDir])
+            runtimeClasspath += files([sourceSets.generated.java.outputDir])
+        }
+        scoverage {
             compileClasspath += files([sourceSets.generated.java.outputDir])
             runtimeClasspath += files([sourceSets.generated.java.outputDir])
         }
