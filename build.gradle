@@ -19,8 +19,6 @@ buildscript {
         classpath 'gradle.plugin.org.openrepose:gradle-jaxb-plugin:2.5.0'
         classpath 'org.scoverage:gradle-scoverage:6.0.0'
         classpath 'com.github.jengelman.gradle.plugins:shadow:2.0.2'
-        // Commented out due to unavailability - scalastyle check will be skipped
-        // classpath 'org.github.ngbinh.scalastyle:gradle-scalastyle-plugin_2.11:1.0.1'
         classpath 'gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1'
         classpath 'com.netflix.nebula:nebula-publishing-plugin:5.1.5'
         classpath 'com.netflix.nebula:gradle-git-scm-plugin:3.0.1'
@@ -32,6 +30,7 @@ buildscript {
         // Commented out due to unavailability - http tasks will be skipped
         // classpath 'gradle.plugin.io.github.http-builder-ng:http-plugin:0.1.1'
         classpath 'org.owasp:dependency-check-gradle:8.0.1'
+        classpath 'io.github.cosmicsilence:gradle-scalafix:0.2.6'
     }
 }
 
@@ -131,7 +130,6 @@ subprojects {
     apply plugin: 'org.openrepose.gradle.plugins.jaxb'
     apply plugin: 'checkstyle'
     apply plugin: 'codenarc'
-    // apply plugin: 'scalaStyle'  // Commented out - plugin unavailable
     apply plugin: 'com.github.hierynomus.license'
     apply plugin: 'jacoco'
     apply plugin: 'nebula.maven-publish'
@@ -331,18 +329,26 @@ subprojects {
         toolVersion = "1.0"
     }
 
-    //todo: write a good one of these plugins, because this is garbage
-    // scalaStyle plugin commented out due to unavailability
-    // scalaStyle {
-    //     configLocation = "$rootDir/repose-aggregator/src/config/styles/scalastyle_config.xml"
-    //     includeTestSourceDirectory = true
-    //     source = "src/main/scala"
-    //     testSource = "src/test/scala"
-    //     failOnWarning = true
-    //     quiet = true
-    // }
-
-    // check.dependsOn scalaStyle
+    // Scalafix: Scala linting and auto-fix (replaces deprecated Scalastyle)
+    // Usage:
+    //   ./gradlew checkScalafix   - lint only, fails on violations (runs as part of 'check')
+    //   ./gradlew scalafix        - auto-fix mode, modifies files in-place
+    // Only apply to leaf projects (no child projects) — aggregator projects don't have source code
+    //
+    // TODO: Re-enable DisableSyntax rules (noVars, noNulls, noThrows) incrementally for new modules
+    // TODO: Add OrganizeImports rule after bumping Scala to 2.12.18+ (requires SemanticDB compatibility)
+    // TODO: Add Scalafmt for whitespace/formatting enforcement (covers gaps from old Scalastyle regex checks)
+    // TODO: Enable test/integrationTest source set linting once test code is cleaned up
+    if (project.childProjects.isEmpty()) {
+        apply plugin: 'io.github.cosmicsilence.scalafix'
+        scalafix {
+            configFile = file("$rootDir/repose-aggregator/src/config/styles/.scalafix.conf")
+            ignoreSourceSets = ['generated', 'scoverage', 'test', 'integrationTest']
+            semanticdb {
+                autoConfigure = false
+            }
+        }
+    }
 
     license {
         header file("$rootDir/repose-aggregator/src/config/license/LICENSE.txt")
