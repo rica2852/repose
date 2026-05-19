@@ -32,6 +32,9 @@ build/
 out/
 .gradletasknamecache
 
+# Kiro local workspace files
+.kiro/
+
 # Ignore Gradle GUI config
 gradle-app.setting
 
