@@ -35,6 +35,9 @@ out/
 # Kiro local workspace files
 .kiro/
 
+# Local Gradle properties (machine-specific JVM args, java.home, etc.)
+gradle.properties
+
 # Ignore Gradle GUI config
 gradle-app.setting
 

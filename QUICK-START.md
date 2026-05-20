@@ -1,96 +1,57 @@
-# Quick Start Guide - Repose with Java 11
+# Quick Start
 
-## TL;DR
+## Build from source
+
+Requires Java 11+.
 
 ```bash
-# Build everything
-./gradlew clean buildAll
-docker build -f Dockerfile-new -t repose:9.1.0.5-java11-patched .
-
-# Run
-docker-compose up -d
-
-# Verify
-docker exec repose java -version
+./gradlew clean buildAll -x test -x integrationTest
 ```
 
-## What Was Fixed
-- ✅ CVE-2023-41993 (Java 8 vulnerability)
-- ✅ Upgraded to Java 11 (LTS)
-- ✅ Updated to Ubuntu 22.04 LTS
-- ✅ Using Eclipse Temurin (official OpenJDK distribution)
+## Docker image
 
-## Build Commands
+The Dockerfile does a full source build internally, so you don't need to build locally first:
 
-### Windows
-```cmd
-build-docker.bat
-```
-
-### Linux/Mac
 ```bash
-chmod +x build-docker.sh
-./build-docker.sh
+docker build -t repose:9.1.0.5-java11 .
 ```
 
-## Run Commands
+Or with compose:
 
-### Using Docker Compose (Recommended)
 ```bash
 docker-compose up -d
-docker-compose logs -f
-docker-compose down
 ```
 
-### Using Docker Directly
+## Run with Docker
+
 ```bash
 docker run -d \
   --name repose \
   -p 8080:8080 \
-  -v /etc/repose:/etc/repose \
+  -v /path/to/config:/etc/repose \
   -e JAVA_OPTS="-Xmx1024m" \
-  repose:9.1.0.5-java11-patched
+  repose:9.1.0.5-java11
 ```
 
-## Verify Installation
+## Verify
 
 ```bash
-# Check Java version
-docker run --rm repose:9.1.0.5-java11-patched java -version
+# Java version
+docker run --rm repose:9.1.0.5-java11 java -version
 
-# Check container logs
-docker logs repose
-
-# Test endpoint
-curl http://localhost:8080
-```
-
-## Troubleshooting
-
-### "No such file or directory: *.deb"
-Run `./gradlew buildAll` first to create the packages.
-
-### "Java version mismatch"
-Ensure Java 11+ is installed:
-```bash
-java -version
-```
-
-### Container won't start
-Check logs:
-```bash
+# Container logs
 docker logs repose
 ```
 
-## File Changes
-- ✏️ `build.gradle` - Java 11 compatibility
-- ✏️ `gradle/wrapper/gradle-wrapper.properties` - Gradle 6.9.4
-- ✏️ `docker-compose.yaml` - New build configuration
-- ✏️ Performance test YAML files - Java 11
-- ✨ `Dockerfile-new` - Java 11 Docker image
-- ✨ Build scripts and documentation
+## What was upgraded
 
-## More Information
-- Full details: `UPGRADE-SUMMARY.md`
-- Docker build guide: `BUILD-DOCKER.md`
-- Original Dockerfile: `Dockerfile` (Java 8 - deprecated)
+- Java 8 → Java 11 (Eclipse Temurin) — fixes CVE-2023-41993
+- Ubuntu 18.04 → Ubuntu 22.04 LTS
+- Gradle 4.x → Gradle 6.9.4
+- Scalastyle → Scalafix
+- Removed defunct plugins (HTTP Builder NG, org.ajoberstar gradle-git)
+
+## Further reading
+
+- `BUILD-DOCKER.md` — Docker build details and history of the original pipeline
+- `PLUGIN-ALTERNATIVES.md` — Plugin migration record

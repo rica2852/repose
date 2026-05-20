@@ -30,7 +30,7 @@ RUN ./gradlew clean buildAll -x test -x integrationTest --no-daemon
 FROM eclipse-temurin:11-jre-jammy
 
 # Maintainer and labels
-LABEL maintainer="The RBA Team <rba@rackspace.com>"
+LABEL maintainer="The Repose Team <reposecore@rackspace.com>"
 LABEL description="Repose 9.1.0.5 with Java 11 - Security patched version"
 LABEL version="9.1.0.5-java11"
 LABEL security.cve-fixed="CVE-2023-41993"
@@ -66,10 +66,13 @@ RUN groupadd -r repose && \
     chown -R repose:repose /home/repose
 
 # Create necessary directories
-RUN mkdir -p ${APP_ROOT} ${APP_VARS} ${APP_LOGS} /usr/share/repose
+RUN mkdir -p ${APP_ROOT} ${APP_VARS} ${APP_LOGS} /usr/share/repose/filters
 
 # Copy built artifacts from builder stage
 COPY --from=builder /build/repose-aggregator/artifacts/valve/build/libs/repose.jar /usr/share/repose/
+COPY --from=builder /build/repose-aggregator/artifacts/filter-bundle/build/libs/*.ear /usr/share/repose/filters/
+COPY --from=builder /build/repose-aggregator/artifacts/extensions-filter-bundle/build/libs/*.ear /usr/share/repose/filters/
+COPY --from=builder /build/repose-aggregator/artifacts/experimental-filter-bundle/build/libs/*.ear /usr/share/repose/filters/
 COPY --from=builder /build/repose-aggregator/artifacts/valve/src/config/filters/*.xml ${APP_ROOT}/
 COPY --from=builder /build/repose-aggregator/artifacts/valve/src/config/filters/*.cfg.xml ${APP_ROOT}/
 

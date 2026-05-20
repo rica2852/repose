@@ -2,7 +2,7 @@ services:
   repose:
     build:
       context: .
-      dockerfile: Dockerfile-new
+      dockerfile: Dockerfile
     image: repose:9.1.0.5-java11-patched
     container_name: repose
     environment:
