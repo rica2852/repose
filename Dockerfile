@@ -4,24 +4,13 @@
 # Stage 1: Build Repose with Java 11
 FROM eclipse-temurin:11-jdk-jammy AS builder
 
-# Install build dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
 WORKDIR /build
 
 # Copy project files
 COPY . .
 
-# Fix line endings and make gradlew executable (Windows CRLF to Unix LF)
-RUN apt-get update && \
-    apt-get install -y dos2unix && \
-    dos2unix ./gradlew && \
-    chmod +x ./gradlew && \
-    rm -rf /var/lib/apt/lists/*
+# Ensure gradlew is executable
+RUN chmod +x ./gradlew
 
 # Build Repose with Gradle (skip tests and integration tests for faster build)
 RUN ./gradlew clean buildAll -x test -x integrationTest --no-daemon
@@ -30,7 +19,7 @@ RUN ./gradlew clean buildAll -x test -x integrationTest --no-daemon
 FROM eclipse-temurin:11-jre-jammy
 
 # Maintainer and labels
-LABEL maintainer="The Repose Team <reposecore@rackspace.com>"
+LABEL maintainer="The RBA Team <rba@rackspace.com>"
 LABEL description="Repose 9.1.0.5 with Java 11 - Security patched version"
 LABEL version="9.1.0.5-java11"
 LABEL security.cve-fixed="CVE-2023-41993"

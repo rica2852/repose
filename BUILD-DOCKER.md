@@ -11,17 +11,9 @@ The default during development. Gradle would:
 2. Copy them into a staging directory alongside a Dockerfile
 3. The Dockerfile installed them with `dpkg -R --install`
 
-The source Dockerfiles still exist at:
-- `repose-aggregator/artifacts/docker/src/docker/resources/file/ubuntu/Dockerfile`
-- `repose-aggregator/artifacts/docker/src/docker/resources/file/centos/Dockerfile`
-
 ### From the package repository ("repo" mode)
 
-Triggered by passing `-Prepose-version=X.X.X.X`. Used a different Dockerfile that pulled packages directly from `nexus.openrepose.org` via APT/Yum. No local build needed.
-
-Source Dockerfiles:
-- `repose-aggregator/artifacts/docker/src/docker/resources/repo/ubuntu/Dockerfile`
-- `repose-aggregator/artifacts/docker/src/docker/resources/repo/centos/Dockerfile`
+Triggered by passing `-Prepose-version=X.X.X.X`. Used a different Dockerfile that pulled packages directly from the (now defunct) `nexus.openrepose.org` via APT/Yum. No local build needed.
 
 ### Publish flow
 
@@ -31,33 +23,25 @@ Wired into the `:release` task. A full release would:
 3. Push to Docker Hub
 4. Remove the local image
 
-### What was in the image
-
-Four packages were installed:
-- `repose` — the valve fat JAR (`repose.jar`) + directory structure + configs
-- `repose-filter-bundle` — EAR with standard filters → `/usr/share/repose/filters/`
-- `repose-extensions-filter-bundle` — EAR → `/usr/share/repose/filters/`
-- `repose-experimental-filter-bundle` — EAR → `/usr/share/repose/filters/`
-
-Base: Ubuntu 18.04 + OpenJDK 8 (or CentOS 7 + java-1.8.0-openjdk).
-
 ---
 
-## What Changed
+## Current Approach
 
-The old pipeline depended on infrastructure that no longer exists (JCenter, the Nexus package repo, Docker Hub credentials). The new approach is a self-contained multi-stage `Dockerfile` at the repo root.
+The old pipeline depended on infrastructure that no longer exists (JCenter, the Nexus package repo, Docker Hub credentials). The new approach uses self-contained multi-stage Dockerfiles that build from source.
 
-### New image details
+### Image variants
 
-| Aspect | Old | New |
-|--------|-----|-----|
-| Base OS | Ubuntu 18.04 / CentOS 7 | Ubuntu 22.04 (Jammy) |
-| Java | OpenJDK 8 | Eclipse Temurin 11 JRE |
-| Build method | Pre-built .deb/.rpm packages | Source build via Gradle in builder stage |
-| Filter bundles | Installed via OS packages | Copied as EAR files from build output |
-| Registry | `rackerlabs/repose` on Docker Hub | Local build only (no push configured) |
+| Variant | Location | Base OS | Java |
+|---------|----------|---------|------|
+| Ubuntu (primary) | `Dockerfile` (root) | Ubuntu 22.04 (Jammy) | Eclipse Temurin 11 JRE |
+| Ubuntu | `repose-aggregator/artifacts/docker/src/docker/resources/file/ubuntu/Dockerfile` | Ubuntu 22.04 (Jammy) | Eclipse Temurin 11 JRE |
+| Rocky Linux | `repose-aggregator/artifacts/docker/src/docker/resources/file/rocky/Dockerfile` | Rocky Linux 9 | OpenJDK 11 |
 
-### Artifacts included
+The `repo/` variants (for installing from a package repository) are templated but commented out, since the original package repository (`nexus.openrepose.org`) is defunct. Uncomment and point to a live repo if package hosting is restored.
+
+> **Note:** The legacy `centos/` directories have been renamed to `rocky/` to reflect the migration from CentOS 7 (EOL June 2024) to Rocky Linux 9.
+
+### Artifacts included in images
 
 - `/usr/share/repose/repose.jar` — valve fat JAR (shadowJar)
 - `/usr/share/repose/filters/*.ear` — filter-bundle, extensions-filter-bundle, experimental-filter-bundle
@@ -67,6 +51,8 @@ The old pipeline depended on infrastructure that no longer exists (JCenter, the 
 
 ## Building
 
+### Quick build (root Dockerfile)
+
 ```bash
 docker build -t repose:9.1.0.5-java11 .
 ```
@@ -75,6 +61,13 @@ Or with compose:
 
 ```bash
 docker-compose up -d
+```
+
+### Rocky Linux variant
+
+```bash
+docker build -t repose:9.1.0.5-java11-rocky \
+  -f repose-aggregator/artifacts/docker/src/docker/resources/file/rocky/Dockerfile .
 ```
 
 The build takes a while — it compiles the full project (Scala + Java) inside the builder stage. Tests are skipped (`-x test -x integrationTest`).
@@ -112,9 +105,23 @@ docker run --rm repose:9.1.0.5-java11 java -version
 docker logs repose
 ```
 
+## CentOS → Rocky Linux Migration
+
+CentOS 7 reached End of Life in June 2024. The RHEL-compatible variant now uses **Rocky Linux 9**, which is a 1:1 binary-compatible rebuild of RHEL 9 and is maintained by the Rocky Enterprise Software Foundation.
+
+Key differences from the old CentOS 7 image:
+- Uses `rockylinux:9-minimal` base (smaller footprint)
+- Package manager: `microdnf` instead of `yum`
+- Java: `java-11-openjdk-headless` (from Rocky's AppStream)
+- User management: `shadow-utils` package provides `useradd`/`groupadd`
+
 ## Reference Files
 
-- `Dockerfile` — the current production Dockerfile
+- `Dockerfile` — the primary production Dockerfile (Ubuntu 22.04)
 - `docker-compose.yaml` — convenience compose file
-- `repose-aggregator/artifacts/docker/` — original Gradle-based Docker build (still in tree, not used)
-- `repose-aggregator/artifacts/docker/src/docker/resources/` — the original Dockerfiles for Ubuntu and CentOS variants
+- `repose-aggregator/artifacts/docker/` — Docker build infrastructure
+  - `src/docker/resources/file/ubuntu/Dockerfile` — Ubuntu multi-stage (from source)
+  - `src/docker/resources/file/rocky/Dockerfile` — Rocky Linux multi-stage (from source)
+  - `src/docker/resources/repo/ubuntu/Dockerfile` — Ubuntu from package repo (template)
+  - `src/docker/resources/repo/rocky/Dockerfile` — Rocky Linux from package repo (template)
+  - `build.gradle` — legacy Gradle-driven Docker pipeline (retained for reference)

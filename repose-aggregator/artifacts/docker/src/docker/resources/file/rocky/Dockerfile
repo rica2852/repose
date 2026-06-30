@@ -1,29 +1,34 @@
-# Repose - Ubuntu 22.04 with Eclipse Temurin 11
+# Repose - Rocky Linux 9 with Eclipse Temurin 11
+# Replaces the legacy CentOS 7 Dockerfile (CentOS 7 EOL: June 2024)
 # Multi-stage build: compile from source, run on minimal JRE
 FROM eclipse-temurin:11-jdk-jammy AS builder
 
 WORKDIR /build
 
-# Copy project files
 COPY . .
 
-# Ensure gradlew is executable
 RUN chmod +x ./gradlew
 
 # Build Repose (skip tests for image builds)
 RUN ./gradlew clean buildAll -x test -x integrationTest --no-daemon
 
-# Runtime stage
-FROM eclipse-temurin:11-jre-jammy
+# Runtime stage - Rocky Linux 9 (RHEL-compatible CentOS successor)
+FROM rockylinux:9-minimal
 
 LABEL maintainer="The Repose Team <reposecore@rackspace.com>"
 LABEL description="Repose - The REstful PrOxy Service Engine"
-LABEL base.os="Ubuntu 22.04 (Jammy)"
+LABEL base.os="Rocky Linux 9"
 
 ENV APP_ROOT=/etc/repose \
     APP_VARS=/var/repose \
     APP_LOGS=/var/log/repose \
     JAVA_OPTS=
+
+# Install OpenJDK 11 JRE from Rocky's AppStream
+RUN microdnf install -y --nodocs \
+        java-11-openjdk-headless \
+        shadow-utils \
+    && microdnf clean all
 
 # Create repose user and group
 RUN groupadd -r repose && \
